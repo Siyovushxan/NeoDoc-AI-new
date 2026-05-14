@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  /* Asosiy ranglar palitrasini v4 formatida e'lon qilish */
+  --color-primary: #4F46E5;
+  --color-primary-hover: #3730A3;
+  --color-background: #0F0F1A;
+  --color-surface: #1A1A2E;
+  --color-border: #2D2D4A;
+  --color-text-main: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-accent: #8B5CF6;
+  --color-success: #10B981;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+
+  * {
+    @apply border-border outline-none;
+  }
+  
+  body {
+    @apply bg-background text-text-main font-sans antialiased overflow-x-hidden;
+    /* Brauzerga ushbu sayt to'q mavzuda ekanligini bildiradi (scrollbar va formalar uchun) */
+    color-scheme: dark;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-text-main font-bold tracking-tight;
+  }
+
+  /* Yangi hujjat yaratish va boshqa barcha inputlar uchun legibility fix */
+  input, textarea, select {
+    @apply bg-surface text-text-main border border-border rounded-lg px-4 py-2 outline-none focus:border-primary transition-colors;
+  }
+
+  /* Placeholderlar juda yorqin bo'lib ketmasligi uchun */
+  ::placeholder {
+    @apply text-text-muted;
+  }
+}
+
+/* Custom Utility for Glassmorphism */
+.glass-card {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}

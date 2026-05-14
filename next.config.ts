@@ -1,14 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals.push({
-        canvas: 'canvas',
-        sharp: 'sharp',
-        protobufjs: 'protobufjs',
-      });
-    }
+  webpack: (config) => {
+    config.ignoreWarnings = [
+      { message: /Critical dependency: the request of a dependency is an expression/ }
+    ];
     return config;
   },
 };

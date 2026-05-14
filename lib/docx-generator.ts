@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, Header, Footer, PageNumber, SectionType } from 'docx';
 
-export async function generateDocxBuffer(data: any, type: string, isFree: boolean): Promise<Buffer> {
+export async function generateDocxBuffer(data: any, _type: string, isFree: boolean): Promise<Buffer> {
   const chapters = data.chapters || [];
   
   // Watermark Paragraph (Diagonal text effect for free users)
@@ -60,7 +60,7 @@ export async function generateDocxBuffer(data: any, type: string, isFree: boolea
 
           // Introduction
           new Paragraph({ text: "KIRISH", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
-          new Paragraph({ text: data.introduction, alignment: AlignmentType.JUSTIFY }),
+          new Paragraph({ text: data.introduction, alignment: AlignmentType.JUSTIFIED }),
 
           // Main Chapters
           ...chapters.flatMap((chapter: any) => [
@@ -71,7 +71,7 @@ export async function generateDocxBuffer(data: any, type: string, isFree: boolea
             }),
             new Paragraph({
               text: chapter.content,
-              alignment: AlignmentType.JUSTIFY,
+              alignment: AlignmentType.JUSTIFIED,
             }),
             ...(chapter.subsections || []).flatMap((sub: any) => [
               new Paragraph({
@@ -81,14 +81,14 @@ export async function generateDocxBuffer(data: any, type: string, isFree: boolea
               }),
               new Paragraph({
                 text: sub.content,
-                alignment: AlignmentType.JUSTIFY,
+                alignment: AlignmentType.JUSTIFIED,
               }),
             ])
           ]),
 
           // Conclusion
           new Paragraph({ text: "XULOSA", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
-          new Paragraph({ text: data.conclusion, alignment: AlignmentType.JUSTIFY }),
+          new Paragraph({ text: data.conclusion, alignment: AlignmentType.JUSTIFIED }),
 
           // References
           new Paragraph({ text: "FOYDALANILGAN ADABIYOTLAR", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),

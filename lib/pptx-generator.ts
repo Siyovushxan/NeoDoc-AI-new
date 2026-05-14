@@ -50,6 +50,6 @@ export async function generatePpptxBuffer(data: any, isFree: boolean): Promise<B
     }
   });
 
-  const buffer = await pptx.write('nodebuffer');
+  const buffer = await pptx.write({ outputType: 'nodebuffer' });
   return buffer as Buffer;
 }

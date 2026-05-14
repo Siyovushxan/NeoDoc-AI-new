@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Mail, Telephone, MapPin, Send, Facebook, Twitter, Instagram } from 'lucide-react';
+import { Send, Facebook, Twitter, Instagram } from 'lucide-react';
 import { Language, t } from '@/lib/constants';
 
 export default function Footer() {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useScroll, useTransform, motion } from 'framer-motion';
-import { Metadata } from 'next';
 import Header from '@/components/header';
 import HeroSection from '@/components/hero-section';
 import FeaturesSection from '@/components/features-section';

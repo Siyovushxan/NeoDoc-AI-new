@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, BarChart3, Zap, ArrowRight, Play } from 'lucide-react';
+import { FileText, BarChart3, ArrowRight, Play } from 'lucide-react';
 import { Language, t } from '@/lib/constants';
 
 export default function HeroSection() {

@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, Header, Footer, PageNumber, NumberFormat, SectionType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, Header, Footer, PageNumber, SectionType } from 'docx';
 
 export async function generateDocxBuffer(data: any, type: string, isFree: boolean): Promise<Buffer> {
   const chapters = data.chapters || [];

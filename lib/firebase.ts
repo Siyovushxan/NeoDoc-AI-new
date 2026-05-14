@@ -1,7 +1,4 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps } from "firebase/app";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,16 +9,8 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debugging: Konfiguratsiya to'liqligini tekshirish (faqat developmentda ko'rinadi)
-if (process.env.NODE_ENV === 'development' && !firebaseConfig.apiKey) {
-  console.warn("Firebase API Key topilmadi! .env.local faylini tekshiring.");
-}
-
-const app = getApps().length === 0 
+// Build vaqtida xatolik chiqmasligi uchun:
+// Agar kalitlar bo'lmasa, uni ishga tushirmaymiz (xavfsiz holat)
+export const app = !getApps().length && firebaseConfig.apiKey 
   ? initializeApp(firebaseConfig) 
-  : getApps()[0];
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export default app;
+  : null;

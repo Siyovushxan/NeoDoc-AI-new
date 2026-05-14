@@ -1,108 +1,55 @@
-import PptxGenJs from 'pptxgenjs';
+import pptxgen from 'pptxgenjs';
 
-export interface PptxGenerationOptions {
-  title: string;
-  content: any;
-  language: 'uz' | 'ru' | 'en';
-}
+export async function generatePpptxBuffer(data: any, isFree: boolean): Promise<Buffer> {
+  const pptx = new pptxgen();
+  pptx.title = data.title;
+  pptx.layout = 'LAYOUT_16x9';
 
-const colorThemes: Record<string, { primary: string; accent: string; bg: string }> = {
-  blue: { primary: '#1E3A5F', accent: '#3B82F6', bg: '#F5C518' },
-  green: { primary: '#14532D', accent: '#22C55E', bg: '#DCFCE7' },
-  orange: { primary: '#7C2D12', accent: '#F97316', bg: '#FFF7ED' },
-  purple: { primary: '#1E1B4B', accent: '#818CF8', bg: '#EEF2FF' },
-};
+  // Color themes
+  const primaryColor = '4F46E5';
+  const textColor = '333333';
+  const watermarkColor = 'E5E5E5';
 
-export async function generatePptx(options: PptxGenerationOptions): Promise<Buffer> {
-  const pres = new PptxGenJs();
-  pres.defineLayout({ name: 'LAYOUT1', width: 10, height: 7.5 });
-
-  const theme = colorThemes[options.content.colorTheme || 'blue'];
-
-  // Slide 1 - Title Slide
-  const slide1 = pres.addSlide();
-  slide1.background = { color: theme.primary };
-  slide1.addText(options.title, {
-    x: 0.5,
-    y: 2.5,
-    w: 9,
-    h: 2,
-    fontSize: 54,
-    bold: true,
-    color: '#FFFFFF',
-    align: 'center',
-    fontFace: 'Arial',
-  });
-  slide1.addText('NeoDoc AI', {
-    x: 0.5,
-    y: 6.5,
-    w: 9,
-    h: 0.5,
-    fontSize: 12,
-    color: '#FFFFFF',
-    align: 'center',
-    fontFace: 'Arial',
-  });
-
-  // Content Slides
-  if (options.content.slides && Array.isArray(options.content.slides)) {
-    options.content.slides.forEach((slideData: any) => {
-      const slide = pres.addSlide();
-      slide.background = { color: '#FFFFFF' };
-
-      // Header with accent
-      slide.addShape(pres.ShapeType.rect, {
-        x: 0,
-        y: 0,
-        w: 10,
-        h: 0.8,
-        fill: { color: theme.primary },
-      });
-
-      // Title
-      slide.addText(slideData.heading, {
-        x: 0.5,
-        y: 0.15,
-        w: 9,
-        h: 0.5,
-        fontSize: 44,
-        bold: true,
-        color: '#FFFFFF',
-        fontFace: 'Arial',
-      });
-
-      // Content bullets
-      if (slideData.bullets && Array.isArray(slideData.bullets)) {
-        let yPos = 1.2;
-        slideData.bullets.forEach((bullet: string) => {
-          slide.addText('• ' + bullet, {
-            x: 1,
-            y: yPos,
-            w: 8,
-            h: 1,
-            fontSize: 20,
-            color: '#333333',
-            fontFace: 'Arial',
-            wrap: true,
-          });
-          yPos += 1.2;
+  data.slides.forEach((slideData: any) => {
+    const slide = pptx.addSlide();
+    
+    // Background if title slide
+    if (slideData.type === 'title') {
+      slide.background = { color: primaryColor };
+      slide.addText(slideData.heading, { x: 1, y: 1.5, w: '80%', fontSize: 44, bold: true, color: 'FFFFFF', align: 'center' });
+      if (data.subtitle) {
+        slide.addText(data.subtitle, { x: 1, y: 3.0, w: '80%', fontSize: 24, color: 'FFFFFF', transparency: 20, align: 'center' });
+      }
+    } else {
+      // Header line for content slides
+      slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.8, w: 9.0, h: 0.05, fill: { color: primaryColor } });
+      slide.addText(slideData.heading, { x: 0.5, y: 0.3, w: '90%', fontSize: 28, bold: true, color: primaryColor });
+      
+      if (slideData.bullets && slideData.bullets.length > 0) {
+        slide.addText(slideData.bullets.map((b: string) => ({ text: b, options: { bullet: true, margin: [5, 0, 5, 0] } })), {
+          x: 0.5, y: 1.2, w: '90%', h: '70%', fontSize: 18, color: textColor, valign: 'top'
         });
       }
+    }
 
-      // Footer
-      slide.addText(`Page ${slideData.slideNumber}`, {
-        x: 9,
-        y: 7,
-        w: 0.8,
-        h: 0.3,
-        fontSize: 10,
-        color: '#999999',
-        align: 'right',
+    // Footer
+    slide.addText(`NeoDoc AI | ${slideData.slideNumber}`, { x: 0.5, y: 5.2, w: '90%', fontSize: 10, color: '999999', align: 'right' });
+
+    // Watermark for free users
+    if (isFree) {
+      slide.addText("NeoDoc AI - Bepul Versiya", {
+        x: 0,
+        y: 5.2,
+        w: '100%',
+        fontSize: 12,
+        bold: true,
+        color: watermarkColor,
+        align: 'center',
+        transparency: 50
       });
-    });
-  }
+    }
+  });
 
-  // Convert to buffer
-  const arrayBuffer = await pres.writeBuffer();
-  return Buffer.from(arrayBuffer);
+  const buffer = await pptx.write('nodebuffer');
+  return buffer as Buffer;
 }

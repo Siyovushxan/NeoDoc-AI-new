@@ -63,7 +63,7 @@ export default function Header() {
 
             {/* CTA Button */}
             <div className="hidden sm:flex items-center gap-4">
-              <Link href="/login" className="text-text-secondary hover:text-text-primary transition font-medium">
+              <Link href="/auth/login" className="text-text-secondary hover:text-text-primary transition font-medium">
                 {t('header.login', language)}
               </Link>
               <Link href="/dashboard" className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-medium">
@@ -86,7 +86,7 @@ export default function Header() {
                 {t(item.key, language)}
               </Link>
             ))}
-            <Link href="/login" className="block text-text-secondary hover:text-text-primary transition">
+            <Link href="/auth/login" className="block text-text-secondary hover:text-text-primary transition">
               {t('header.login', language)}
             </Link>
             <Link href="/dashboard" className="block px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-center">

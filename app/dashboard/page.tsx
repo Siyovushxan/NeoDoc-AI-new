@@ -6,6 +6,9 @@ import Header from '@/components/header';
 import { motion } from 'framer-motion';
 import { Document, DocumentType, Language, t } from '@/lib/constants';
 import { FileText, FileBarChart, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 
 type FilterType = 'all' | 'presentation' | 'docx' | 'infografika';
 
@@ -15,6 +18,7 @@ export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [language, setLanguage] = useState<Language>('uz');
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // Forma holati (state)
   const [topic, setTopic] = useState('');
@@ -24,9 +28,13 @@ export default function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Hujjatni o'chirish funksiyasi
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm(t('common.delete', language) + '?')) {
-      setDocuments(prev => prev.filter(doc => doc.id !== id));
+      try {
+        await deleteDoc(doc(db, 'documents', id));
+      } catch (error) {
+        console.error("Error deleting document:", error);
+      }
     }
   };
 
@@ -44,24 +52,24 @@ export default function DashboardPage() {
     setIsGenerating(true);
     
     try {
-      // Generatsiya jarayonini simulyatsiya qilish (3 soniya)
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      const newDoc: Document = {
-        id: Math.random().toString(36).substr(2, 9),
-        userId: 'current-user',
+      // Firestore'ga yangi zapros yozish
+      await addDoc(collection(db, 'documents'), {
+        userId: user.uid,
         title: topic,
         type: docType,
         language: docLanguage,
-        status: 'ready',
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      };
+        status: 'generating',
+        createdAt: serverTimestamp(),
+      });
 
-      setDocuments(prev => [newDoc, ...prev]);
+      // API endpointni chaqirish (Hujjatni AI generatsiya qilishi uchun)
+      await fetch('/api/generate', {
+        method: 'POST',
+        body: JSON.stringify({ topic, type: docType, lang: docLanguage, userId: user.uid })
+      });
+
       setTopic('');
       setNotes('');
-      alert(t('common.success', language));
     } catch (error) {
       alert(t('common.error', language));
     } finally {
@@ -83,16 +91,23 @@ export default function DashboardPage() {
     return () => window.removeEventListener('languageChange', handleLangChange);
   }, []);
 
-  // Mock ma'lumotlar (Firebase ulangandan keyin o'chiriladi)
   useEffect(() => {
-    const mockDocs: any[] = [
-      { id: '1', title: 'Ekologiya tahlili', type: 'presentation', createdAt: new Date(), status: 'ready', language: 'uz' },
-      { id: '2', title: 'Iqtisodiy o\'sish', type: 'referat', createdAt: new Date(), status: 'ready', language: 'uz' },
-      { id: '3', title: 'Global isish', type: 'infografika', createdAt: new Date(), status: 'ready', language: 'en' },
-      { id: '4', title: 'Sun\'iy intellekt', type: 'kurs_ishi', createdAt: new Date(), status: 'ready', language: 'ru' },
-    ];
-    setDocuments(mockDocs);
-  }, []);
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser(user);
+        // Foydalanuvchi hujjatlarini Firestore'dan olish
+        const q = query(collection(db, 'documents'), where('userId', '==', user.uid));
+        const unsubscribeDocs = onSnapshot(q, (snapshot) => {
+          const docsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+          setDocuments(docsData);
+        });
+        return () => unsubscribeDocs();
+      } else {
+        router.push('/auth/login');
+      }
+    });
+    return () => unsubscribeAuth();
+  }, [router]);
 
   if (!mounted) return null;
 

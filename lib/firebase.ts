@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -12,16 +12,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Debugging: Konfiguratsiya to'liqligini tekshirish (faqat developmentda ko'rinadi)
+if (process.env.NODE_ENV === 'development' && !firebaseConfig.apiKey) {
+  console.warn("Firebase API Key topilmadi! .env.local faylini tekshiring.");
+}
 
-// Initialize Firebase Authentication and get a reference to the service
+const app = getApps().length === 0 
+  ? initializeApp(firebaseConfig) 
+  : getApps()[0];
+
 export const auth = getAuth(app);
-
-// Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
-
-// Initialize Cloud Storage and get a reference to the service
 export const storage = getStorage(app);
-
 export default app;

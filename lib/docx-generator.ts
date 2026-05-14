@@ -1,235 +1,108 @@
-import { Document, Packer, Paragraph, TextRun, PageBreak, Table, TableRow, TableCell, UnderlineType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, Header, Footer, PageNumber, NumberFormat, SectionType } from 'docx';
 
-export interface DocxGenerationOptions {
-  title: string;
-  type: 'referat' | 'kurs_ishi' | 'mustaqil_talim';
-  content: any;
-  language: 'uz' | 'ru' | 'en';
-  addWatermark?: boolean;
-}
-
-function createCoverPage(options: DocxGenerationOptions): Paragraph[] {
-  const { content, title, language } = options;
-  const langText = {
-    uz: { university: 'TOSHKENT DAVLAT UNIVERSITETI', kurs: 'KURS ISHI', bajardi: 'Bajardi:', tekshirdi: 'Tekshirdi:' },
-    ru: { university: 'ТАШКЕНТСКИЙ ГОСУДАРСТВЕННЫЙ УНИВЕРСИТЕТ', kurs: 'КУРСОВАЯ РАБОТА', bajardi: 'Выполнил:', tekshirdi: 'Проверил:' },
-    en: { university: 'TASHKENT STATE UNIVERSITY', kurs: 'TERM PAPER', bajardi: 'Author:', tekshirdi: 'Reviewer:' },
-  };
-
-  const lang = langText[language];
-
-  return [
-    new Paragraph({
-      text: lang.university,
-      alignment: 'center',
-      spacing: { line: 240 },
-      style: 'Normal',
-    }),
-    new Paragraph({
-      text: content.coverInfo?.faculty || '',
-      alignment: 'center',
-      spacing: { line: 240 },
-    }),
-    new Paragraph({
-      text: content.coverInfo?.department || '',
-      alignment: 'center',
-      spacing: { line: 240 },
-    }),
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Paragraph({
-      text: title,
-      alignment: 'center',
-      bold: true,
-      size: 32,
-      spacing: { line: 240 },
-    }),
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Paragraph(`${lang.bajardi} _________________`),
-    new Paragraph(`${lang.tekshirdi} _________________`),
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Paragraph({
-      text: `Toshkent — ${new Date().getFullYear()}`,
-      alignment: 'center',
-    }),
-    new PageBreak(),
-  ];
-}
-
-function createTableOfContents(content: any): Paragraph[] {
-  const paragraphs: Paragraph[] = [
-    new Paragraph({
-      text: 'MUNDARIJA',
-      bold: true,
-      size: 32,
-      spacing: { line: 240 },
-    }),
-    new Paragraph({ text: '' }),
-  ];
-
-  if (content.chapters && Array.isArray(content.chapters)) {
-    content.chapters.forEach((chapter: any, index: number) => {
-      paragraphs.push(
-        new Paragraph({
-          text: `${index + 1}. ${chapter.heading}`,
-          spacing: { line: 240 },
-        })
-      );
-    });
-  }
-
-  paragraphs.push(
-    new Paragraph({ text: '' }),
-    new Paragraph('FOYDALANILGAN ADABIYOTLAR'),
-    new PageBreak()
-  );
-
-  return paragraphs;
-}
-
-function createContentParagraphs(content: any): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
-
-  // Introduction
-  if (content.introduction) {
-    paragraphs.push(
-      new Paragraph({
-        text: 'KIRISH',
+export async function generateDocxBuffer(data: any, type: string, isFree: boolean): Promise<Buffer> {
+  const chapters = data.chapters || [];
+  
+  // Watermark Paragraph (Diagonal text effect for free users)
+  const watermark = isFree ? new Paragraph({
+    children: [
+      new TextRun({
+        text: "NeoDoc AI - Bepul Versiya",
+        color: "E5E5E5",
+        size: 80,
         bold: true,
-        size: 32,
-        spacing: { line: 240 },
       }),
-      new Paragraph({ text: '' }),
-      new Paragraph({
-        text: content.introduction,
-        spacing: { line: 360 },
-        alignment: 'justified',
-      }),
-      new PageBreak()
-    );
-  }
-
-  // Chapters
-  if (content.chapters && Array.isArray(content.chapters)) {
-    content.chapters.forEach((chapter: any, index: number) => {
-      paragraphs.push(
-        new Paragraph({
-          text: `${index + 1}-BOB. ${chapter.heading.toUpperCase()}`,
-          bold: true,
-          size: 28,
-          spacing: { line: 240 },
-        }),
-        new Paragraph({ text: '' }),
-        new Paragraph({
-          text: chapter.content,
-          spacing: { line: 360 },
-          alignment: 'justified',
-        })
-      );
-
-      if (chapter.subsections && Array.isArray(chapter.subsections)) {
-        chapter.subsections.forEach((subsection: any, subIndex: number) => {
-          paragraphs.push(
-            new Paragraph({
-              text: subsection.heading,
-              bold: true,
-              size: 24,
-              spacing: { line: 240 },
-            }),
-            new Paragraph({
-              text: subsection.content,
-              spacing: { line: 360 },
-              alignment: 'justified',
-            })
-          );
-        });
-      }
-
-      if (index < content.chapters.length - 1) {
-        paragraphs.push(new PageBreak());
-      }
-    });
-  }
-
-  // Conclusion
-  if (content.conclusion) {
-    paragraphs.push(
-      new PageBreak(),
-      new Paragraph({
-        text: 'XULOSA',
-        bold: true,
-        size: 32,
-        spacing: { line: 240 },
-      }),
-      new Paragraph({ text: '' }),
-      new Paragraph({
-        text: content.conclusion,
-        spacing: { line: 360 },
-        alignment: 'justified',
-      })
-    );
-  }
-
-  // References
-  if (content.references && Array.isArray(content.references)) {
-    paragraphs.push(
-      new PageBreak(),
-      new Paragraph({
-        text: 'FOYDALANILGAN ADABIYOTLAR',
-        bold: true,
-        size: 32,
-        spacing: { line: 240 },
-      }),
-      new Paragraph({ text: '' })
-    );
-
-    content.references.forEach((ref: string, index: number) => {
-      paragraphs.push(
-        new Paragraph({
-          text: `${index + 1}. ${ref}`,
-          spacing: { line: 240 },
-        })
-      );
-    });
-  }
-
-  return paragraphs;
-}
-
-export async function generateDocx(options: DocxGenerationOptions): Promise<Buffer> {
-  const paragraphs: Paragraph[] = [];
-
-  // Add cover page
-  paragraphs.push(...createCoverPage(options));
-
-  // Add table of contents
-  paragraphs.push(...createTableOfContents(options.content));
-
-  // Add main content
-  paragraphs.push(...createContentParagraphs(options.content));
+    ],
+    alignment: AlignmentType.CENTER,
+  }) : null;
 
   const doc = new Document({
     sections: [
       {
         properties: {
-          page: {
-            margins: {
-              top: 1440,
-              right: 1080,
-              bottom: 1440,
-              left: 1440,
-            },
-          },
+          type: SectionType.NEXT_PAGE,
         },
-        children: paragraphs,
+        headers: {
+          default: new Header({
+            children: isFree ? [watermark!] : [],
+          }),
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    children: [PageNumber.CURRENT],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        },
+        children: [
+          // Title Page (Simplified for now)
+          new Paragraph({
+            text: data.title,
+            heading: HeadingLevel.TITLE,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 2400, after: 1200 },
+          }),
+          ...(data.coverInfo ? [
+            new Paragraph({ text: data.coverInfo.university || "", alignment: AlignmentType.CENTER }),
+            new Paragraph({ text: data.coverInfo.faculty || "", alignment: AlignmentType.CENTER }),
+          ] : []),
+          
+          // Table of Contents Placeholder
+          new Paragraph({ text: "MUNDARIJA", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
+          ...chapters.map((c: any) => new Paragraph({ text: c.heading, spacing: { before: 200 } })),
+
+          // Introduction
+          new Paragraph({ text: "KIRISH", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
+          new Paragraph({ text: data.introduction, alignment: AlignmentType.JUSTIFY }),
+
+          // Main Chapters
+          ...chapters.flatMap((chapter: any) => [
+            new Paragraph({
+              text: chapter.heading,
+              heading: HeadingLevel.HEADING_1,
+              spacing: { before: 1000, after: 400 },
+            }),
+            new Paragraph({
+              text: chapter.content,
+              alignment: AlignmentType.JUSTIFY,
+            }),
+            ...(chapter.subsections || []).flatMap((sub: any) => [
+              new Paragraph({
+                text: sub.heading,
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 },
+              }),
+              new Paragraph({
+                text: sub.content,
+                alignment: AlignmentType.JUSTIFY,
+              }),
+            ])
+          ]),
+
+          // Conclusion
+          new Paragraph({ text: "XULOSA", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
+          new Paragraph({ text: data.conclusion, alignment: AlignmentType.JUSTIFY }),
+
+          // References
+          new Paragraph({ text: "FOYDALANILGAN ADABIYOTLAR", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
+          ...(data.references || []).map((ref: string) => new Paragraph({ text: `- ${ref}`, bullet: { level: 0 } })),
+          
+          // Test Questions (for mustaqil ta'lim)
+          ...(data.testQuestions ? [
+            new Paragraph({ text: "TEST SAVOLLARI", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 1000 } }),
+            ...data.testQuestions.map((q: string) => new Paragraph({ text: q, bullet: { level: 0 } }))
+          ] : []),
+        ],
       },
     ],
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  return buffer;
+  return await Packer.toBuffer(doc);
 }

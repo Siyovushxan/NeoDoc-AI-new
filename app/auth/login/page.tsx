@@ -10,6 +10,7 @@ import {
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Language, t } from '@/lib/constants';
 import Header from '@/components/header';
 
@@ -107,7 +108,14 @@ export default function LoginPage() {
           </div>
 
           <button onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 border border-border bg-surface text-text-main rounded-xl hover:bg-border transition-all flex items-center justify-center gap-2 font-medium">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+            <Image 
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+              alt="Google" 
+              width={20} 
+              height={20} 
+              className="w-5 h-5"
+              unoptimized
+            />
             {t('auth.signin-google', language)}
           </button>
 

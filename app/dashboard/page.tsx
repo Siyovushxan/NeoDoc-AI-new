@@ -211,7 +211,7 @@ export default function DashboardPage() {
                     <div>
                       <label className="block text-sm font-medium mb-2">{t('dashboard.language', language)}</label>
                       <select value={docLanguage} onChange={(e) => setDocLanguage(e.target.value as Language)} className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="uz">O'zbek</option>
+                        <option value="uz">O&apos;zbek</option>
                         <option value="ru">Русский</option>
                         <option value="en">English</option>
                       </select>
@@ -223,7 +223,7 @@ export default function DashboardPage() {
                     <textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder={t('dashboard.topic-placeholder', language)}
+                      placeholder={t('dashboard.notes-placeholder', language)}
                       className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-slate-500 resize-none h-24"
                     />
                   </div>

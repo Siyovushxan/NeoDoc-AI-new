@@ -55,7 +55,7 @@ export default function Header() {
             <div className="flex items-center gap-2 border border-border rounded-lg p-2">
               <Globe size={16} className="text-text-secondary" />
               <select value={language} onChange={(e) => handleLanguageChange(e.target.value as Language)} className="bg-transparent border-none outline-none text-sm cursor-pointer">
-                <option value="uz">O'z</option>
+                <option value="uz">O&apos;z</option>
                 <option value="ru">Рус</option>
                 <option value="en">Eng</option>
               </select>

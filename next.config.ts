@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals.push({
-        'canvas': 'canvas',
+        canvas: 'canvas',
+        sharp: 'sharp',
       });
     }
     return config;

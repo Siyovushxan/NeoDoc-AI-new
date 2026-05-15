@@ -7,6 +7,7 @@ import {
   doc, getDoc, updateDoc, addDoc,
   collection, increment, serverTimestamp,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Bu qator to'g'ri
 
 export async function POST(request: Request) {
   let body: any = null;
@@ -60,9 +61,9 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const fileRef = storageInstance.ref(`documents/${userId}/${fileName}`);
-      await storageInstance.uploadBytes(fileRef, buffer, { contentType });
-      downloadUrl = await storageInstance.getDownloadURL(fileRef);
+      const fileRef = ref(storageInstance, `documents/${userId}/${fileName}`); // storageInstance ni birinchi argument sifatida berish
+      await uploadBytes(fileRef, buffer, { contentType }); // fileRef ni birinchi argument sifatida berish
+      downloadUrl = await getDownloadURL(fileRef); // fileRef ni birinchi argument sifatida berish
     } catch (storageErr) {
       console.warn('Storage upload failed:', storageErr);
     }

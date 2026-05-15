@@ -2,19 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, X, Globe } from 'lucide-react';
+import { Menu, X, Globe, User, LogOut } from 'lucide-react';
 import { Language, t } from '@/lib/constants';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [language, setLanguage] = useState<Language>('uz');
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
+  const pathname = usePathname();
+  const isDashboard = pathname.startsWith('/dashboard');
 
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem('language') as Language | null;
     if (saved) setLanguage(saved);
+
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        // Kreditlarni real vaqtda kuzatish
+        return onSnapshot(doc(db, 'users', u.uid), (doc) => {
+          if (doc.exists()) setCredits(doc.data().credits);
+        });
+      } else {
+        setCredits(null);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLanguageChange = (lang: Language) => {
@@ -42,7 +64,7 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            {navItems.map((item) => (
+            {!isDashboard && navItems.map((item) => (
               <Link key={item.key} href={item.href} className="text-text-secondary hover:text-text-primary transition">
                 {t(item.key, language)}
               </Link>
@@ -61,14 +83,33 @@ export default function Header() {
               </select>
             </div>
 
-            {/* CTA Button */}
-            <div className="hidden sm:flex items-center gap-4">
-              <Link href="/auth/login" className="text-text-secondary hover:text-text-primary transition font-medium">
-                {t('header.login', language)}
-              </Link>
-              <Link href="/dashboard" className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-medium">
-                {t('header.start', language)}
-              </Link>
+            {/* Auth/Profile Section */}
+            <div className="hidden md:flex items-center gap-4">
+              {!isDashboard ? (
+                <>
+                  <Link href="/auth/login" className="text-text-secondary hover:text-text-primary transition font-medium">
+                    {t('header.login', language)}
+                  </Link>
+                  <Link href="/dashboard" className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-medium">
+                    {t('header.start', language)}
+                  </Link>
+                </>
+              ) : (
+                user && (
+                  <div className="flex items-center gap-4 border-l border-border pl-4">
+                    <div className="text-right hidden lg:block">
+                      <p className="text-sm font-medium text-text-primary">{user.displayName || user.email}</p>
+                      <p className="text-xs text-primary font-bold">{credits !== null ? credits : '...'} {t('dashboard.credits', language)}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center overflow-hidden">
+                      {user.photoURL ? <img src={user.photoURL} alt="profile" className="w-full h-full object-cover" /> : <User size={20} />}
+                    </div>
+                    <button onClick={() => signOut(auth)} className="text-text-secondary hover:text-error transition">
+                      <LogOut size={20} />
+                    </button>
+                  </div>
+                )
+              )}
             </div>
 
             {/* Mobile Menu Button */}

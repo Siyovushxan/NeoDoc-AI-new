@@ -1,6 +1,6 @@
 import pptxgen from 'pptxgenjs';
 
-export async function generatePpptxBuffer(data: any, isFree: boolean): Promise<Buffer> {
+export async function generatePptxBuffer(data: any, isFree: boolean): Promise<Buffer> {
   const pptx = new pptxgen();
   pptx.title = data.title;
   pptx.layout = 'LAYOUT_16x9';
@@ -50,6 +50,6 @@ export async function generatePpptxBuffer(data: any, isFree: boolean): Promise<B
     }
   });
 
-  const buffer = await pptx.write({ outputType: 'nodebuffer' });
-  return buffer as Buffer;
+  const buffer = await pptx.write({ outputType: 'nodebuffer' }) as Buffer;
+  return buffer;
 }

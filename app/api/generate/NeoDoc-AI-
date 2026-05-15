@@ -1,25 +1,24 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
 import { motion } from 'framer-motion';
-import { Document as AppDocument, DocumentType, Language, t } from '@/lib/constants';
+import { Document, DocumentType, Language, t } from '@/lib/constants';
 import { FileText, FileBarChart, Image as ImageIcon, Download, Trash2 } from 'lucide-react';
-import { auth, db, storage } from '@/lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { ref, deleteObject } from 'firebase/storage';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 
 type FilterType = 'all' | 'presentation' | 'docx' | 'infografika';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
-  const [documents, setDocuments] = useState<AppDocument[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [language, setLanguage] = useState<Language>('uz');
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   // Forma holati (state)
   const [topic, setTopic] = useState('');
@@ -29,14 +28,10 @@ export default function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Hujjatni o'chirish funksiyasi
-  const handleDelete = async (id: string, storagePath?: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm(t('common.delete', language) + '?')) {
       try {
         await deleteDoc(doc(db, 'documents', id));
-        // Agar storagePath bo'lsa, faylni ham o'chirish
-        if (storagePath) {
-          await deleteObject(ref(storage, storagePath));
-        }
       } catch (error) {
         console.error("Error deleting document:", error);
       }
@@ -44,24 +39,21 @@ export default function DashboardPage() {
   };
 
   // Hujjatni yuklab olish funksiyasi (simulyatsiya)
-  const handleDownload = (doc: AppDocument) => {
-    if (doc?.fileUrl) {
-      window.open(doc.fileUrl, '_blank');
-    } else {
-      alert(t('common.error', language));
-    }
+  const handleDownload = (doc: Document) => {
+    // Haqiqiy ilovada doc.fileUrl ishlatiladi. Hozircha oddiy xabar chiqariladi:
+    alert(`${t('common.download', language)}: ${doc.title}`);
   };
 
   // Yangi hujjat yaratish funksiyasi
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topic || !user) return;
+    if (!topic) return;
 
     setIsGenerating(true);
     
     try {
       // Firestore'ga yangi zapros yozish
-      const docRef = await addDoc(collection(db, 'documents'), {
+      await addDoc(collection(db, 'documents'), {
         userId: user.uid,
         title: topic,
         type: docType,
@@ -73,13 +65,7 @@ export default function DashboardPage() {
       // API endpointni chaqirish (Hujjatni AI generatsiya qilishi uchun)
       await fetch('/api/generate', {
         method: 'POST',
-        body: JSON.stringify({ 
-          topic, 
-          type: docType, 
-          lang: docLanguage, 
-          userId: user.uid,
-          documentId: docRef.id 
-        })
+        body: JSON.stringify({ topic, type: docType, lang: docLanguage, userId: user.uid })
       });
 
       setTopic('');
@@ -106,16 +92,13 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser: FirebaseUser | null) => {
-      if (currentUser) {
-        setUser(currentUser);
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUser(user);
         // Foydalanuvchi hujjatlarini Firestore'dan olish
-        const q = query(collection(db, 'documents'), where('userId', '==', currentUser.uid));
-        const unsubscribeDocs = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-          const docsData = snapshot.docs.map((snapDoc: any) => ({ 
-            id: snapDoc.id, 
-            ...snapDoc.data() 
-          } as AppDocument));
+        const q = query(collection(db, 'documents'), where('userId', '==', user.uid));
+        const unsubscribeDocs = onSnapshot(q, (snapshot) => {
+          const docsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
           setDocuments(docsData);
         });
         return () => unsubscribeDocs();
@@ -128,7 +111,7 @@ export default function DashboardPage() {
 
   if (!mounted) return null;
 
-  const filteredDocuments = documents.filter((doc: AppDocument) => {
+  const filteredDocuments = documents.filter((doc) => {
     if (filter === 'all') return true;
     if (filter === 'presentation') return doc.type === 'presentation';
     if (filter === 'docx') return ['referat', 'kurs_ishi', 'mustaqil_talim'].includes(doc.type);
@@ -203,7 +186,7 @@ export default function DashboardPage() {
                     <input
                       type="text"
                       value={topic}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTopic(e.target.value)}
+                      onChange={(e) => setTopic(e.target.value)}
                       placeholder={t('dashboard.topic-placeholder', language)}
                       className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-slate-500"
                       required
@@ -215,7 +198,7 @@ export default function DashboardPage() {
                       <label className="block text-sm font-medium mb-2">{t('dashboard.type', language)}</label>
                       <select 
                         value={docType}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDocType(e.target.value as DocumentType)}
+                        onChange={(e) => setDocType(e.target.value as DocumentType)}
                         className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="referat">{t('features.referat', language)}</option>
@@ -227,11 +210,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">{t('dashboard.language', language)}</label>
-                      <select 
-                        value={docLanguage} 
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDocLanguage(e.target.value as Language)} 
-                        className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
+                      <select value={docLanguage} onChange={(e) => setDocLanguage(e.target.value as Language)} className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
                         <option value="uz">O&apos;zbek</option>
                         <option value="ru">Русский</option>
                         <option value="en">English</option>
@@ -243,7 +222,7 @@ export default function DashboardPage() {
                     <label className="block text-sm font-medium mb-2">{t('dashboard.notes', language)}</label>
                     <textarea
                       value={notes}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                      onChange={(e) => setNotes(e.target.value)}
                       placeholder={t('dashboard.notes-placeholder', language)}
                       className="w-full px-4 py-3 bg-white text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-slate-500 resize-none h-24"
                     />
@@ -269,7 +248,7 @@ export default function DashboardPage() {
                 <h3 className="text-2xl font-bold mb-4">{t('dashboard.history', language)}</h3>
                 {filteredDocuments.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
-                    {filteredDocuments.map((doc: AppDocument) => (
+                    {filteredDocuments.map((doc) => (
                       <div key={doc.id} className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between hover:border-primary/50 transition group">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-background rounded-lg group-hover:bg-primary/5 transition">
@@ -289,7 +268,7 @@ export default function DashboardPage() {
                             <Download size={18} />
                           </button>
                           <button 
-                            onClick={() => handleDelete(doc.id, doc.storagePath)}
+                            onClick={() => handleDelete(doc.id)}
                             className="p-2 hover:bg-background rounded-lg text-text-muted hover:text-error transition" 
                             title={t('common.delete', language)}
                           >

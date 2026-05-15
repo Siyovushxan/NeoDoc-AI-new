@@ -26,6 +26,7 @@ export interface Document {
   status: 'generating' | 'ready' | 'failed';
   fileUrl?: string;
   fileName?: string;
+  storagePath?: string; // Added storagePath
   fileSize?: number;
   pageCount?: number;
   createdAt: Date;
@@ -102,6 +103,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.create': 'Yaratish',
     'dashboard.credits': 'Kreditlar',
     'dashboard.no-credits': 'Kreditlar yetarli emas',
+    'dashboard.no-documents': 'Hali hujjatlar yo\'q. Birinchi hujjatni yarating!',
 
     // Auth
     'auth.login': 'Kirish',
@@ -189,6 +191,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.create': 'Создать',
     'dashboard.credits': 'Кредиты',
     'dashboard.no-credits': 'Недостаточно кредитов',
+    'dashboard.no-documents': 'Документов пока нет. Создайте первый документ!',
 
     // Auth
     'auth.login': 'Вход',
@@ -276,6 +279,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.create': 'Create',
     'dashboard.credits': 'Credits',
     'dashboard.no-credits': 'Insufficient credits',
+    'dashboard.no-documents': 'No documents yet. Create your first one!',
 
     // Auth
     'auth.login': 'Login',

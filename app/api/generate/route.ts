@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
-import { generatePpptxBuffer } from '@/lib/pptx-generator';
+import { generatePptxBuffer } from '@/lib/pptx-generator';
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -9,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { topic, type, lang, userId, additionalNotes } = body;
+    const { topic, type, lang, userId, additionalNotes, documentId } = body;
 
     if (!topic || !type || !lang || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     let contentType: string;
 
     if (type === 'presentation') {
-      buffer = await generatePpptxBuffer(aiContent, isFree);
+      buffer = await generatePptxBuffer(aiContent, isFree);
       extension = 'pptx';
       contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     } else if (['referat', 'kurs_ishi', 'mustaqil_talim'].includes(type)) {
@@ -64,10 +64,17 @@ export async function POST(request: Request) {
     await uploadBytes(fileRef, buffer, { contentType });
     const downloadUrl = await getDownloadURL(fileRef);
 
-    // 5. Firestore'ni yangilash (Status va Kredit)
-    // Hujjatni qidirish (yaqinda yaratilgan statusi 'generating' bo'lgan hujjat)
-    // Bu yerda odatda hujjat ID-si frontdan yuboriladi yoki qidiriladi.
-    // Hozircha biz yangi hujjat yaratilganini front-end onSnapshot orqali bilib oladi deb hisoblaymiz.
+    // 5. Firestore'ni yangilash
+    if (documentId) {
+      const docRef = doc(db, 'documents', documentId);
+      await updateDoc(docRef, {
+        status: 'ready',
+        fileUrl: downloadUrl,
+        fileName: fileName,
+        fileSize: buffer.length,
+        storagePath: storagePath,
+      });
+    }
     
     // Kreditni kamaytirish
     await updateDoc(userRef, {
@@ -83,6 +90,11 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Generation API Error:', error);
+    // If documentId exists, mark it as failed in Firestore
+    if (reqDocumentId) {
+      const docRef = doc(db, 'documents', reqDocumentId);
+      await updateDoc(docRef, { status: 'failed' });
+    }
     return NextResponse.json({ 
       success: false, 
       error: error.message || 'Server error' 

@@ -8,14 +8,19 @@ import {
   collection, increment, serverTimestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Bu qator to'g'ri
+import { DocumentType, Language } from '@/lib/constants';
+
+interface GenerateRequestBody {
+  topic: string;
+  type: DocumentType;
+  lang: Language;
+  userId: string;
+  additionalNotes?: string;
+}
 
 export async function POST(request: Request) {
-  let body: any = null;
-
-  const storageInstance = storage; // Assume storage is initialized from '@/lib/firebase'
-
   try {
-    body = await request.json();
+    const body: GenerateRequestBody = await request.json();
     const { topic, type, lang, userId, additionalNotes } = body;
 
     if (!topic || !type || !lang || !userId) {
@@ -61,9 +66,9 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const fileRef = ref(storageInstance, `documents/${userId}/${fileName}`); // storageInstance ni birinchi argument sifatida berish
-      await uploadBytes(fileRef, buffer, { contentType }); // fileRef ni birinchi argument sifatida berish
-      downloadUrl = await getDownloadURL(fileRef); // fileRef ni birinchi argument sifatida berish
+      const fileRef = ref(storage, `documents/${userId}/${fileName}`);
+      await uploadBytes(fileRef, buffer, { contentType });
+      downloadUrl = await getDownloadURL(fileRef);
     } catch (storageErr) {
       console.warn('Storage upload failed:', storageErr);
     }

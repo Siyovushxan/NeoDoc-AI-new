@@ -34,6 +34,8 @@ export async function POST(request: Request) {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
 
+    console.log(`Starting generation for user: ${userId}, topic: ${topic}`);
+
     if (!userSnap.exists()) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }

@@ -122,17 +122,21 @@ export default function Header() {
         {/* Mobile Navigation */}
         {isOpen && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="md:hidden mt-4 space-y-4">
-            {navItems.map((item) => (
-              <Link key={item.key} href={item.href} className="block text-text-secondary hover:text-text-primary transition">
-                {t(item.key, language)}
-              </Link>
-            ))}
-            <Link href="/auth/login" className="block text-text-secondary hover:text-text-primary transition">
-              {t('header.login', language)}
-            </Link>
-            <Link href="/dashboard" className="block px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-center">
-              {t('header.start', language)}
-            </Link>
+            {!isDashboard && (
+              <>
+                {navItems.map((item) => (
+                  <Link key={item.key} href={item.href} className="block text-text-secondary hover:text-text-primary transition">
+                    {t(item.key, language)}
+                  </Link>
+                ))}
+                <Link href="/auth/login" className="block text-text-secondary hover:text-text-primary transition">
+                  {t('header.login', language)}
+                </Link>
+                <Link href="/dashboard" className="block px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-center">
+                  {t('header.start', language)}
+                </Link>
+              </>
+            )}
           </motion.div>
         )}
       </nav>

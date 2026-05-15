@@ -62,11 +62,17 @@ export default function DashboardPage() {
         createdAt: serverTimestamp(),
       });
 
-      // API endpointni chaqirish (Hujjatni AI generatsiya qilishi uchun)
-      await fetch('/api/generate', {
+      // API chaqiruvi
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        body: JSON.stringify({ topic, type: docType, lang: docLanguage, userId: user.uid })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, type: docType, lang: docLanguage, userId: user.uid }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Generatsiya muvaffaqiyatsiz tugadi');
+      }
 
       setTopic('');
       setNotes('');

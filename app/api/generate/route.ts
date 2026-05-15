@@ -7,13 +7,13 @@ import {
   doc, getDoc, updateDoc, addDoc,
   collection, increment, serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Bu qator to'g'ri
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { DocumentType, Language } from '@/lib/constants';
 
 interface GenerateRequestBody {
   topic: string;
-  type: DocumentType;
-  lang: Language;
+  type: string;
+  lang: string;
   userId: string;
   additionalNotes?: string;
 }
@@ -21,7 +21,11 @@ interface GenerateRequestBody {
 export async function POST(request: Request) {
   try {
     const body: GenerateRequestBody = await request.json();
-    const { topic, type, lang, userId, additionalNotes } = body;
+    const { topic, userId, additionalNotes } = body;
+    
+    // Stringdan aniq turlarga kasting qilish
+    const type = body.type as DocumentType;
+    const lang = body.lang as Language;
 
     if (!topic || !type || !lang || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -42,7 +46,10 @@ export async function POST(request: Request) {
     const isFree = userData.plan === 'free';
 
     const aiContent = await generateAIContent({
-      topic, type, language: lang, additionalNotes,
+      topic, 
+      type, 
+      language: lang, 
+      additionalNotes,
     });
 
     let buffer: Buffer;

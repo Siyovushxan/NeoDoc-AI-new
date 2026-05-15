@@ -2,12 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { serverDb, serverStorage } from '@/lib/firebase-server';
-import {
-  doc, getDoc, updateDoc, addDoc,
-  collection, increment, serverTimestamp,
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { serverDb, serverStorage, FieldValue } from '@/lib/firebase-server';
 
 export async function POST(request: Request) {
   let body: any = null;
@@ -25,10 +20,10 @@ export async function POST(request: Request) {
     }
 
     // Foydalanuvchi tekshiruvi
-    const userRef = doc(serverDb, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const userRef = serverDb.collection('users').doc(userId);
+    const userSnap = await userRef.get();
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       return NextResponse.json({ error: 'Foydalanuvchi topilmadi' }, { status: 404 });
     }
 
@@ -74,15 +69,18 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const fileRef = ref(serverStorage, `documents/${userId}/${fileName}`);
-      await uploadBytes(fileRef, buffer, { contentType });
-      downloadUrl = await getDownloadURL(fileRef);
+      const file = serverStorage.file(`documents/${userId}/${fileName}`);
+      await file.save(buffer, {
+        metadata: { contentType },
+        public: true,
+      });
+      downloadUrl = `https://storage.googleapis.com/${serverStorage.name}/${file.name}`;
     } catch (storageErr) {
       console.warn('Storage upload xatosi:', storageErr);
     }
 
     // Firestore ga hujjat saqlash
-    const newDocRef = await addDoc(collection(serverDb, 'documents'), {
+    const newDocRef = await serverDb.collection('documents').add({
       userId,
       title: topic,
       type,
@@ -91,12 +89,12 @@ export async function POST(request: Request) {
       fileName,
       fileSize: buffer.length,
       fileUrl: downloadUrl,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     // Kredit ayirish
-    await updateDoc(userRef, { credits: increment(-1) });
+    await userRef.update({ credits: FieldValue.increment(-1) });
 
     // Base64 va metadata qaytarish
     return NextResponse.json({
@@ -110,12 +108,19 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('Generation xatosi:', error);
+    console.error('--- GENERATION ERROR START ---');
+    console.error('Error Name:', error.name);
+    console.error('Error Message:', error.message);
+    console.error('Error Code:', error.code);
+    console.error('Stack Trace:', error.stack);
+    console.error('--- GENERATION ERROR END ---');
+
     return NextResponse.json(
       {
         success: false,
         error: error.message || 'Server xatosi',
-        hint: 'Firebase Security Rules yoki Credential muammosi bo\'lishi mumkin',
+        code: error.code || 'unknown',
+        hint: 'Firebase Security Rules, Index yoki Credential muammosi bo\'lishi mumkin. Konsolni (Vercel/Terminal) tekshiring.',
       },
       { status: 500 }
     );

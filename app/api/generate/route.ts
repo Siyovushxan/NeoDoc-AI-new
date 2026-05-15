@@ -2,55 +2,60 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { db, storage } from '@/lib/firebase';
+import { serverDb, serverStorage } from '@/lib/firebase-server';
 import {
   doc, getDoc, updateDoc, addDoc,
   collection, increment, serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Bu qator to'g'ri
-import { DocumentType, Language } from '@/lib/constants';
-
-interface GenerateRequestBody {
-  topic: string;
-  type: DocumentType;
-  lang: Language;
-  userId: string;
-  additionalNotes?: string;
-}
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function POST(request: Request) {
+  let body: any = null;
+
   try {
-    const body: GenerateRequestBody = await request.json();
-    const { topic, userId, additionalNotes } = body;
+    body = await request.json();
+    const { topic, type, lang, userId, additionalNotes } = body;
 
-    // TypeScript turlarini qat'iy belgilash
-    const type = body.type as DocumentType;
-    const lang = body.lang as Language;
-
+    // Majburiy maydonlar tekshiruvi
     if (!topic || !type || !lang || !userId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'topic, type, lang, userId majburiy' },
+        { status: 400 }
+      );
     }
 
-    const userRef = doc(db, 'users', userId);
+    // Env var tekshiruvi
+    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+      return NextResponse.json(
+        { error: 'Firebase konfiguratsiya topilmadi. Vercel env vars tekshiring.' },
+        { status: 500 }
+      );
+    }
+
+    // Foydalanuvchi tekshiruvi
+    const userRef = doc(serverDb, 'users', userId);
     const userSnap = await getDoc(userRef);
 
-    console.log(`Starting generation for user: ${userId}, topic: ${topic}`);
-
     if (!userSnap.exists()) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Foydalanuvchi topilmadi' }, { status: 404 });
     }
 
     const userData = userSnap.data();
-    if (userData.credits < 1) {
-      return NextResponse.json({ error: 'Insufficient credits' }, { status: 403 });
+    if ((userData.credits ?? 0) < 1) {
+      return NextResponse.json({ error: 'Kreditlar yetarli emas' }, { status: 403 });
     }
 
     const isFree = userData.plan === 'free';
 
+    // AI kontent generatsiya
     const aiContent = await generateAIContent({
-      topic, type, language: lang, additionalNotes,
+      topic,
+      type,
+      language: lang,
+      additionalNotes,
     });
 
+    // Fayl generatsiya
     let buffer: Buffer;
     let extension: string;
     let contentType: string;
@@ -58,13 +63,18 @@ export async function POST(request: Request) {
     if (type === 'presentation') {
       buffer = await generatePptxBuffer(aiContent, isFree);
       extension = 'pptx';
-      contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      contentType =
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     } else if (['referat', 'kurs_ishi', 'mustaqil_talim'].includes(type)) {
       buffer = await generateDocxBuffer(aiContent, type, isFree);
       extension = 'docx';
-      contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      contentType =
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     } else {
-      return NextResponse.json({ error: 'Type not supported yet' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Bu hujjat turi hali qo\'llab-quvvatlanmaydi' },
+        { status: 400 }
+      );
     }
 
     const fileName = `${type}_${Date.now()}.${extension}`;
@@ -72,15 +82,15 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const fileRef = ref(storage, `documents/${userId}/${fileName}`);
+      const fileRef = ref(serverStorage, `documents/${userId}/${fileName}`);
       await uploadBytes(fileRef, buffer, { contentType });
       downloadUrl = await getDownloadURL(fileRef);
     } catch (storageErr) {
-      console.warn('Storage upload failed:', storageErr);
+      console.warn('Storage upload xatosi:', storageErr);
     }
 
-    // Firestore ga saqlash
-    const newDocRef = await addDoc(collection(db, 'documents'), {
+    // Firestore ga hujjat saqlash
+    const newDocRef = await addDoc(collection(serverDb, 'documents'), {
       userId,
       title: topic,
       type,
@@ -96,6 +106,7 @@ export async function POST(request: Request) {
     // Kredit ayirish
     await updateDoc(userRef, { credits: increment(-1) });
 
+    // Base64 va metadata qaytarish
     return NextResponse.json({
       success: true,
       documentId: newDocRef.id,
@@ -107,9 +118,13 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('Generation Error:', error);
+    console.error('Generation xatosi:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Server error' },
+      {
+        success: false,
+        error: error.message || 'Server xatosi',
+        hint: 'Vercel dashboard > Environment Variables ni tekshiring',
+      },
       { status: 500 }
     );
   }

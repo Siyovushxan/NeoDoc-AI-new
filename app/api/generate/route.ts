@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { serverDb, serverStorage, FieldValue } from '@/lib/firebase-server';
+import { serverDb, serverStorage } from '@/lib/firebase-server';
+import {
+  doc, getDoc, updateDoc, addDoc,
+  collection, increment, serverTimestamp,
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function POST(request: Request) {
   let body: any = null;
@@ -19,19 +24,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Env var tekshiruvi
-    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-      return NextResponse.json(
-        { error: 'Firebase konfiguratsiya topilmadi. Vercel env vars tekshiring.' },
-        { status: 500 }
-      );
-    }
-
     // Foydalanuvchi tekshiruvi
-    const userRef = serverDb.collection('users').doc(userId);
-    const userSnap = await userRef.get();
+    const userRef = doc(serverDb, 'users', userId);
+    const userSnap = await getDoc(userRef);
 
-    if (!userSnap.exists) {
+    if (!userSnap.exists()) {
       return NextResponse.json({ error: 'Foydalanuvchi topilmadi' }, { status: 404 });
     }
 
@@ -77,19 +74,15 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const file = serverStorage.file(`documents/${userId}/${fileName}`);
-      await file.save(buffer, {
-        metadata: { contentType },
-        public: true
-      });
-      // Get public URL
-      downloadUrl = `https://storage.googleapis.com/${serverStorage.name}/${file.name}`;
+      const fileRef = ref(serverStorage, `documents/${userId}/${fileName}`);
+      await uploadBytes(fileRef, buffer, { contentType });
+      downloadUrl = await getDownloadURL(fileRef);
     } catch (storageErr) {
       console.warn('Storage upload xatosi:', storageErr);
     }
 
     // Firestore ga hujjat saqlash
-    const newDocRef = await serverDb.collection('documents').add({
+    const newDocRef = await addDoc(collection(serverDb, 'documents'), {
       userId,
       title: topic,
       type,
@@ -98,12 +91,12 @@ export async function POST(request: Request) {
       fileName,
       fileSize: buffer.length,
       fileUrl: downloadUrl,
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     // Kredit ayirish
-    await userRef.update({ credits: FieldValue.increment(-1) });
+    await updateDoc(userRef, { credits: increment(-1) });
 
     // Base64 va metadata qaytarish
     return NextResponse.json({
@@ -122,9 +115,9 @@ export async function POST(request: Request) {
       {
         success: false,
         error: error.message || 'Server xatosi',
-        hint: 'Vercel dashboard > Environment Variables ni tekshiring',
+        hint: 'Firebase Security Rules yoki Credential muammosi bo\'lishi mumkin',
       },
       { status: 500 }
     );
   }
-}
+}

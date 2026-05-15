@@ -11,6 +11,8 @@ import {
 export async function POST(request: Request) {
   let body: any = null;
 
+  const storageInstance = storage; // Assume storage is initialized from '@/lib/firebase'
+
   try {
     body = await request.json();
     const { topic, type, lang, userId, additionalNotes } = body;
@@ -58,10 +60,9 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-      const fileRef = ref(storage, `documents/${userId}/${fileName}`);
-      await uploadBytes(fileRef, buffer, { contentType });
-      downloadUrl = await getDownloadURL(fileRef);
+      const fileRef = storageInstance.ref(`documents/${userId}/${fileName}`);
+      await storageInstance.uploadBytes(fileRef, buffer, { contentType });
+      downloadUrl = await storageInstance.getDownloadURL(fileRef);
     } catch (storageErr) {
       console.warn('Storage upload failed:', storageErr);
     }

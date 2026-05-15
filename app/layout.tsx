@@ -11,11 +11,18 @@ export const metadata: Metadata = {
   description:
     'Create presentations, essays, and infographics with AI. Get professional documents instantly with NeoDoc AI.',
   keywords: 'AI documents, presentation generator, essay writer, academic documents',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="uz" data-scroll-behavior="smooth">
       <body className="min-h-screen bg-background text-text-main">
         {children}
       </body>

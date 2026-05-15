@@ -91,8 +91,8 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Generation API Error:', error);
     // If documentId exists, mark it as failed in Firestore
-    if (reqDocumentId) {
-      const docRef = doc(db, 'documents', reqDocumentId);
+    if (body?.documentId) {
+      const docRef = doc(db, 'documents', body.documentId);
       await updateDoc(docRef, { status: 'failed' });
     }
     return NextResponse.json({ 

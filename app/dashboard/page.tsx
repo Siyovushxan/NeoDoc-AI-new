@@ -78,7 +78,8 @@ export default function DashboardPage() {
           type: docType, 
           lang: docLanguage, 
           userId: user.uid,
-          documentId: docRef.id 
+          documentId: docRef.id,
+          additionalNotes: notes
         })
       });
 

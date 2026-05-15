@@ -2,21 +2,23 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase';
+import {
+  doc, getDoc, updateDoc, addDoc,
+  collection, increment, serverTimestamp,
+} from 'firebase/firestore';
 
 export async function POST(request: Request) {
   let body: any = null;
 
   try {
     body = await request.json();
-    const { topic, type, lang, userId, additionalNotes, documentId } = body;
+    const { topic, type, lang, userId, additionalNotes } = body;
 
     if (!topic || !type || !lang || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Foydalanuvchi va kredit tekshiruvi
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
 
@@ -31,19 +33,13 @@ export async function POST(request: Request) {
 
     const isFree = userData.plan === 'free';
 
-    // AI kontent generatsiya
     const aiContent = await generateAIContent({
-      topic,
-      type,
-      language: lang,
-      additionalNotes,
+      topic, type, language: lang, additionalNotes,
     });
 
-    // Fayl generatsiya
     let buffer: Buffer;
     let extension: string;
     let contentType: string;
-    let fileName: string;
 
     if (type === 'presentation') {
       buffer = await generatePptxBuffer(aiContent, isFree);
@@ -57,45 +53,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Type not supported yet' }, { status: 400 });
     }
 
-    fileName = `${type}_${Date.now()}.${extension}`;
+    const fileName = `${type}_${Date.now()}.${extension}`;
 
-    // Firestore: status yangilash
-    if (documentId) {
-      await updateDoc(doc(db, 'documents', documentId), {
-        status: 'ready',
-        fileName,
-        fileSize: buffer.length,
-      });
+    // Firebase Storage ga yuklash
+    let downloadUrl = '';
+    try {
+      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+      const fileRef = ref(storage, `documents/${userId}/${fileName}`);
+      await uploadBytes(fileRef, buffer, { contentType });
+      downloadUrl = await getDownloadURL(fileRef);
+    } catch (storageErr) {
+      console.warn('Storage upload failed:', storageErr);
     }
 
-    // Kredit ayirish
-    await updateDoc(userRef, {
-      credits: increment(-1),
+    // Firestore ga saqlash
+    const newDocRef = await addDoc(collection(db, 'documents'), {
+      userId,
+      title: topic,
+      type,
+      language: lang,
+      status: 'ready',
+      fileName,
+      fileSize: buffer.length,
+      fileUrl: downloadUrl,
+      createdAt: serverTimestamp(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // Faylni to'g'ridan-to'g'ri qaytarish
-  return new NextResponse(new Uint8Array(buffer), {
-    status: 200,
-    headers: {
-      'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${fileName}"`,
-      'Content-Length': buffer.length.toString(),
-    },
-  });
+    // Kredit ayirish
+    await updateDoc(userRef, { credits: increment(-1) });
+
+    return NextResponse.json({
+      success: true,
+      documentId: newDocRef.id,
+      fileName,
+      fileBase64: buffer.toString('base64'),
+      contentType,
+      fileSize: buffer.length,
+      downloadUrl,
+    });
 
   } catch (error: any) {
-    console.error('Generation API Error:', error);
-
-    if (body?.documentId) {
-      try {
-        await updateDoc(doc(db, 'documents', body.documentId), {
-          status: 'failed',
-        });
-      } catch (e) {
-        console.error('Failed to update document status:', e);
-      }
-    }
-
+    console.error('Generation Error:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Server error' },
       { status: 500 }

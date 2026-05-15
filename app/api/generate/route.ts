@@ -2,23 +2,24 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function POST(request: Request) {
+  let body: any = null;
+
   try {
-    const body = await request.json();
+    body = await request.json();
     const { topic, type, lang, userId, additionalNotes, documentId } = body;
 
     if (!topic || !type || !lang || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Foydalanuvchi ma'lumotlarini olish (kredit va plan tekshiruvi)
+    // Foydalanuvchi va kredit tekshiruvi
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
-    
+
     if (!userSnap.exists()) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -30,18 +31,19 @@ export async function POST(request: Request) {
 
     const isFree = userData.plan === 'free';
 
-    // 2. AI orqali kontent generatsiya qilish
+    // AI kontent generatsiya
     const aiContent = await generateAIContent({
       topic,
       type,
       language: lang,
-      additionalNotes
+      additionalNotes,
     });
 
-    // 3. Faylni generatsiya qilish (Generator tanlash)
+    // Fayl generatsiya
     let buffer: Buffer;
     let extension: string;
     let contentType: string;
+    let fileName: string;
 
     if (type === 'presentation') {
       buffer = await generatePptxBuffer(aiContent, isFree);
@@ -52,52 +54,51 @@ export async function POST(request: Request) {
       extension = 'docx';
       contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     } else {
-      // Placeholder for PNG/Infographic
       return NextResponse.json({ error: 'Type not supported yet' }, { status: 400 });
     }
 
-    // 4. Firebase Storage'ga yuklash
-    const fileName = `${type}_${Date.now()}.${extension}`;
-    const storagePath = `documents/${userId}/${fileName}`;
-    const fileRef = ref(storage, storagePath);
-    
-    await uploadBytes(fileRef, buffer, { contentType });
-    const downloadUrl = await getDownloadURL(fileRef);
+    fileName = `${type}_${Date.now()}.${extension}`;
 
-    // 5. Firestore'ni yangilash
+    // Firestore: status yangilash
     if (documentId) {
-      const docRef = doc(db, 'documents', documentId);
-      await updateDoc(docRef, {
+      await updateDoc(doc(db, 'documents', documentId), {
         status: 'ready',
-        fileUrl: downloadUrl,
-        fileName: fileName,
+        fileName,
         fileSize: buffer.length,
-        storagePath: storagePath,
       });
     }
-    
-    // Kreditni kamaytirish
+
+    // Kredit ayirish
     await updateDoc(userRef, {
-      credits: increment(-1)
+      credits: increment(-1),
     });
 
-    return NextResponse.json({
-      success: true,
-      fileName,
-      downloadUrl,
-      fileSize: buffer.length
-    });
+    // Faylni to'g'ridan-to'g'ri qaytarish
+  return new NextResponse(new Uint8Array(buffer), {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': buffer.length.toString(),
+    },
+  });
 
   } catch (error: any) {
     console.error('Generation API Error:', error);
-    // If documentId exists, mark it as failed in Firestore
+
     if (body?.documentId) {
-      const docRef = doc(db, 'documents', body.documentId);
-      await updateDoc(docRef, { status: 'failed' });
+      try {
+        await updateDoc(doc(db, 'documents', body.documentId), {
+          status: 'failed',
+        });
+      } catch (e) {
+        console.error('Failed to update document status:', e);
+      }
     }
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message || 'Server error' 
-    }, { status: 500 });
+
+    return NextResponse.json(
+      { success: false, error: error.message || 'Server error' },
+      { status: 500 }
+    );
   }
 }

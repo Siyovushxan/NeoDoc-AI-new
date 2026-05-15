@@ -2,12 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateAIContent } from '@/lib/ai';
 import { generateDocxBuffer } from '@/lib/docx-generator';
 import { generatePptxBuffer } from '@/lib/pptx-generator';
-import { serverDb, serverStorage } from '@/lib/firebase-server';
-import {
-  doc, getDoc, updateDoc, addDoc,
-  collection, increment, serverTimestamp,
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { serverDb, serverStorage, FieldValue } from '@/lib/firebase-server';
 
 export async function POST(request: Request) {
   let body: any = null;
@@ -33,14 +28,14 @@ export async function POST(request: Request) {
     }
 
     // Foydalanuvchi tekshiruvi
-    const userRef = doc(serverDb, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const userRef = serverDb.collection('users').doc(userId);
+    const userSnap = await userRef.get();
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       return NextResponse.json({ error: 'Foydalanuvchi topilmadi' }, { status: 404 });
     }
 
-    const userData = userSnap.data();
+    const userData = userSnap.data() || {};
     if ((userData.credits ?? 0) < 1) {
       return NextResponse.json({ error: 'Kreditlar yetarli emas' }, { status: 403 });
     }
@@ -82,15 +77,19 @@ export async function POST(request: Request) {
     // Firebase Storage ga yuklash
     let downloadUrl = '';
     try {
-      const fileRef = ref(serverStorage, `documents/${userId}/${fileName}`);
-      await uploadBytes(fileRef, buffer, { contentType });
-      downloadUrl = await getDownloadURL(fileRef);
+      const file = serverStorage.file(`documents/${userId}/${fileName}`);
+      await file.save(buffer, {
+        metadata: { contentType },
+        public: true
+      });
+      // Get public URL
+      downloadUrl = `https://storage.googleapis.com/${serverStorage.name}/${file.name}`;
     } catch (storageErr) {
       console.warn('Storage upload xatosi:', storageErr);
     }
 
     // Firestore ga hujjat saqlash
-    const newDocRef = await addDoc(collection(serverDb, 'documents'), {
+    const newDocRef = await serverDb.collection('documents').add({
       userId,
       title: topic,
       type,
@@ -99,12 +98,12 @@ export async function POST(request: Request) {
       fileName,
       fileSize: buffer.length,
       fileUrl: downloadUrl,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     // Kredit ayirish
-    await updateDoc(userRef, { credits: increment(-1) });
+    await userRef.update({ credits: FieldValue.increment(-1) });
 
     // Base64 va metadata qaytarish
     return NextResponse.json({
